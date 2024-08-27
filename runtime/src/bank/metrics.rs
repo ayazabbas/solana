@@ -42,6 +42,7 @@ pub(crate) struct NewBankTimings {
     pub(crate) recompilation_time_us: u64,
     pub(crate) update_sysvars_time_us: u64,
     pub(crate) fill_sysvar_cache_time_us: u64,
+    pub(crate) update_accumulator_time_us: u64,
 }
 
 pub(crate) fn report_new_epoch_metrics(

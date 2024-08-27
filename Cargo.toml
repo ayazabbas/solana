@@ -154,7 +154,7 @@ atty = "0.2.11"
 backoff = "0.4.0"
 base64 = "0.21.7"
 bincode = "1.3.3"
-bitflags = { version = "2.4.2", features = ["serde"] }
+bitflags = { version = "2.6.0", features = ["serde", "bytemuck"] }
 blake3 = "1.5.0"
 block-buffer = "0.10.4"
 borsh = { version = "1.2.1", features = ["derive", "unstable__schema"] }
@@ -271,6 +271,10 @@ prost = "0.11.9"
 prost-build = "0.11.9"
 prost-types = "0.11.9"
 protobuf-src = "1.1.0"
+pyth-oracle = { git = "https://github.com/pyth-network/pyth-client", tag = "oracle-v2.33.0", features = [
+    "library",
+] }
+pythnet-sdk = { git = "https://github.com/pyth-network/pyth-crosschain", version = "2.4.0", rev = "06d77ec435f14f55c828d19540222ad14aa6c712" }
 qstring = "0.7.2"
 qualifier_attr = { version = "0.2.2", default-features = false }
 quinn = "0.10.2"

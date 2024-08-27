@@ -789,6 +789,31 @@ pub mod deprecate_unused_legacy_vote_plumbing {
     solana_sdk::declare_id!("6Uf8S75PVh91MYgPQSHnjRAPQq6an5BDv9vomrCwDqLe");
 }
 
+pub mod enable_accumulator_sysvar {
+    solana_sdk::declare_id!("BawYFA2oeA4CacxgQgLn6ZwRWDq1ZPXruUuEbko8oPT5");
+}
+
+pub mod move_accumulator_to_end_of_block {
+    solana_sdk::declare_id!("Ecz7cAP89wKDAoEJYhovFcxMcXRJiWGfFdefcSrx2Ynr");
+}
+
+pub mod zero_wormhole_message_timestamps {
+    solana_sdk::declare_id!("UMg4wFe51vKLHXpbdKWP8kFHWQBsCfbd67AoiyPSaH2");
+}
+
+pub mod undo_move_accumulator_to_end_of_block {
+    solana_sdk::declare_id!("EfmMYu7ajxsKNgtWmDWKYq9Pt5EUrC3qEHAXEVBBT1bs");
+}
+
+pub mod redo_move_accumulator_to_end_of_block {
+    solana_sdk::declare_id!("skyhwRBbP1LoHzWy1QrwLWy3vo2uHkzVV1zpN9UsGuw");
+}
+
+pub mod add_publisher_stake_caps_to_the_accumulator {
+    solana_sdk::declare_id!("J5u6Vrgj7de8zLcjQVhuRAPzEzfDamrxAQMz3q6HSmi1");
+}
+
+
 lazy_static! {
     /// Map of feature identifiers to user-visible description
     pub static ref FEATURE_NAMES: HashMap<Pubkey, &'static str> = [
@@ -981,6 +1006,12 @@ lazy_static! {
         (enable_chained_merkle_shreds::id(), "Enable chained Merkle shreds #34916"),
         (deprecate_unused_legacy_vote_plumbing::id(), "Deprecate unused legacy vote tx plumbing"),
         (chained_merkle_conflict_duplicate_proofs::id(), "generate duplicate proofs for chained merkle root conflicts"),
+        (enable_accumulator_sysvar::id(), "enable accumulator sysvar #<GH_ISSUE_NUMBER>"),
+        (move_accumulator_to_end_of_block::id(), "move accumulator to end of block #<GH_ISSUE_NUMBER>"),
+        (zero_wormhole_message_timestamps::id(), "use zeroed timestamps in wormhole messages"),
+        (undo_move_accumulator_to_end_of_block::id(), "undo accumulator end of block change"),
+        (redo_move_accumulator_to_end_of_block::id(), "redo accumulator end of block change"),
+        (add_publisher_stake_caps_to_the_accumulator::id(), "add publisher stake caps to the accumulator")
         /*************** ADD NEW FEATURES HERE ***************/
     ]
     .iter()

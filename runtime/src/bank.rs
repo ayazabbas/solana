@@ -71,6 +71,7 @@ use {
         slice::ParallelSlice,
         ThreadPool, ThreadPoolBuilder,
     },
+    serde::Serialize,
     solana_accounts_db::{
         account_overrides::AccountOverrides,
         accounts::{
@@ -222,6 +223,12 @@ mod fee_distribution;
 mod metrics;
 mod serde_snapshot;
 mod sysvar_cache;
+
+pub mod pyth_accumulator;
+
+#[cfg(test)]
+mod pyth_accumulator_tests;
+
 #[cfg(test)]
 pub(crate) mod tests;
 mod transaction_account_state_info;
@@ -1087,6 +1094,28 @@ impl Bank {
         bank.update_recent_blockhashes();
         bank.update_last_restart_slot();
         bank.fill_missing_sysvar_cache_entries();
+
+        // The features are activated one after another.
+        // The accumulator is moved to end of the block either if the
+        // move_accumulator_to_end_of_block feature is active or if all
+        // the features are active.
+        let accumulator_moved_to_end_of_block = bank
+            .feature_set
+            .is_active(&feature_set::move_accumulator_to_end_of_block::id())
+            ^ bank
+                .feature_set
+                .is_active(&feature_set::undo_move_accumulator_to_end_of_block::id())
+            ^ bank
+                .feature_set
+                .is_active(&feature_set::redo_move_accumulator_to_end_of_block::id());
+        // If the accumulator is not moved to end of block, update the
+        // accumulator last to make sure that the solana fully updated
+        // state before the accumulator is used.  bank is in a fully
+        // updated state before the accumulator is used.
+        if !accumulator_moved_to_end_of_block {
+            pyth_accumulator::update_accumulator(&bank);
+        }
+
         bank
     }
 
@@ -1433,6 +1462,29 @@ impl Bank {
             new.update_last_restart_slot()
         });
 
+        let (_, update_accumulator_time) = measure!({
+            // The features are activated one after another.
+            // The accumulator is moved to end of the block either if the
+            // move_accumulator_to_end_of_block feature is active or if all
+            // the features are active.
+            let accumulator_moved_to_end_of_block = new
+                .feature_set
+                .is_active(&feature_set::move_accumulator_to_end_of_block::id())
+                ^ new
+                    .feature_set
+                    .is_active(&feature_set::undo_move_accumulator_to_end_of_block::id())
+                ^ new
+                    .feature_set
+                    .is_active(&feature_set::redo_move_accumulator_to_end_of_block::id());
+            // If the accumulator is not moved to end of block, update the
+            // accumulator last to make sure that all fully updated state before
+            // the accumulator sysvar updates.  sysvars are in a fully updated
+            // state before the accumulator sysvar updates.
+            if !accumulator_moved_to_end_of_block {
+                pyth_accumulator::update_accumulator(&new);
+            }
+        });
+
         let (_, fill_sysvar_cache_time_us) = measure_us!(new.fill_missing_sysvar_cache_entries());
         time.stop();
 
@@ -1459,6 +1511,7 @@ impl Bank {
                 recompilation_time_us,
                 update_sysvars_time_us,
                 fill_sysvar_cache_time_us,
+                update_accumulator_time_us: update_accumulator_time.as_us(),
             },
         );
 
@@ -3670,12 +3723,54 @@ impl Bank {
         // committed before this write lock can be obtained here.
         let mut hash = self.hash.write().unwrap();
         if *hash == Hash::default() {
+            // The features are activated one after another.
+            // The accumulator is moved to end of the block either if the
+            // move_accumulator_to_end_of_block feature is active or if all
+            // the features are active.
+            let accumulator_moved_to_end_of_block = self
+                .feature_set
+                .is_active(&feature_set::move_accumulator_to_end_of_block::id())
+                ^ self
+                    .feature_set
+                    .is_active(&feature_set::undo_move_accumulator_to_end_of_block::id())
+                ^ self
+                    .feature_set
+                    .is_active(&feature_set::redo_move_accumulator_to_end_of_block::id());
+            // If accumulator move to end of block is active update the accumulator before doing
+            // other tasks when freezing to avoid any conflicts.
+            if accumulator_moved_to_end_of_block {
+                let mut measure = Measure::start("accumulator");
+                pyth_accumulator::update_accumulator(self);
+                measure.stop();
+
+                debug!(
+                    "Accumulator: Updated accumulator before freezing. Slot: {}, time: {}us",
+                    self.slot(),
+                    measure.as_us(),
+                );
+            } else {
+                info!(
+                    "Accumulator: Skipping accumulating end of block because the feature is disabled. Slot: {}",
+                    self.slot()
+                );
+            }
+
+            let mut measure = Measure::start("freeze");
+
             // finish up any deferred changes to account state
             self.collect_rent_eagerly();
             self.distribute_transaction_fees();
             self.distribute_rent_fees();
             self.update_slot_history();
             self.run_incinerator();
+
+            measure.stop();
+            debug!(
+                "Bank frozen (non-accumulator): {} slot {} time: {}us",
+                self.collector_id,
+                self.slot(),
+                measure.as_us()
+            );
 
             // freeze is a one-way trip, idempotent
             self.freeze_started.store(true, Relaxed);
