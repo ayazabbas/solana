@@ -196,6 +196,22 @@ pub fn create_genesis_config_with_leader(
     }
 }
 
+/// Pythnet-specific genesis-time features.
+pub fn activate_pythnet_genesis_features(genesis_config: &mut GenesisConfig) {
+    // Activate all features at genesis in development mode
+    for feature_id in solana_sdk::feature_set::PYTHNET_GENESIS_FEATURES.keys() {
+        genesis_config.accounts.insert(
+            *feature_id,
+            Account::from(feature::create_account(
+                &Feature {
+                    activated_at: Some(0),
+                },
+                std::cmp::max(genesis_config.rent.minimum_balance(Feature::size_of()), 1),
+            )),
+        );
+    }
+}
+
 pub fn activate_all_features(genesis_config: &mut GenesisConfig) {
     // Activate all features at genesis in development mode
     for feature_id in FeatureSet::default().inactive {
